@@ -10,6 +10,13 @@ const roleOptions = [
     accent: 'blue',
   },
   {
+    key: 'manager',
+    label: '部门管理者',
+    heading: '部门管理者登录',
+    description: '查看部门数据、审批流程与团队协作事务。',
+    accent: 'gold',
+  },
+  {
     key: 'employee',
     label: '员工',
     heading: '员工登录',
@@ -24,6 +31,12 @@ const mockAccounts = {
     password: '123456',
     displayName: '张晓宁',
     roleName: '普通员工',
+  },
+  manager: {
+    username: 'manager01',
+    password: 'manager123',
+    displayName: '周明远',
+    roleName: '部门管理者',
   },
   admin: {
     username: 'admin01',
@@ -163,7 +176,7 @@ fillDemoAccount()
         <article class="feature-card">
           <span class="feature-index">03</span>
           <h2>权限与审计</h2>
-          <p>区分员工和管理员入口，为后续日志与安全控制预留完整空间。</p>
+          <p>区分员工、部门管理者和管理员入口，为后续日志与安全控制预留完整空间。</p>
         </article>
       </div>
     </section>
@@ -223,6 +236,7 @@ fillDemoAccount()
             <div class="helper-row">
               <div class="demo-tip">
                 <p>员工：`employee01 / 123456`</p>
+                <p>部门管理者：`manager01 / manager123`</p>
                 <p>管理员：`admin01 / admin123`</p>
               </div>
 

@@ -195,6 +195,14 @@ button {
   --theme-border: rgba(95, 143, 255, 0.18);
 }
 
+.login-card.theme-gold {
+  --theme-main: #d6a443;
+  --theme-soft: rgba(244, 210, 138, 0.3);
+  --theme-strong: #9b6b18;
+  --theme-shadow: rgba(214, 164, 67, 0.24);
+  --theme-border: rgba(214, 164, 67, 0.18);
+}
+
 .login-card.theme-pink {
   --theme-main: #eb6ea5;
   --theme-soft: rgba(255, 185, 213, 0.28);
@@ -230,7 +238,7 @@ button {
 .role-tabs {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   padding: 10px 10px 0;
   background:
     linear-gradient(180deg, rgba(242, 246, 255, 0.72), rgba(255, 255, 255, 0.22));
@@ -242,9 +250,10 @@ button {
   padding: 22px 12px 18px;
   background: rgba(255, 255, 255, 0.26);
   color: #2d3a57;
-  font-size: 23px;
+  font-size: 20px;
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.03em;
+  line-height: 1.15;
   backdrop-filter: blur(10px);
   transition:
     background 180ms ease,
@@ -281,6 +290,10 @@ button {
 .role-tab:first-child {
   border-top-left-radius: 22px;
   clip-path: polygon(0 0, 100% 0, calc(100% - 22px) 100%, 0 100%);
+}
+
+.role-tab:nth-child(2) {
+  clip-path: polygon(22px 0, calc(100% - 22px) 0, 100% 100%, 0 100%);
 }
 
 .role-tab:last-child {
@@ -559,7 +572,7 @@ button {
 
   .role-tab {
     padding: 18px 10px 16px;
-    font-size: 20px;
+    font-size: 16px;
   }
 
   .card-body {
