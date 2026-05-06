@@ -20,8 +20,13 @@ function getRoleOption(role) {
   return roleOptions.find((item) => item.key === role) ?? roleOptions[0]
 }
 
+function normalizeRole(role) {
+  if (typeof role !== 'string') return 'employee'
+  return role.trim().toLowerCase()
+}
+
 function getAccount(role) {
-  return mockAccounts[role]
+  return mockAccounts[normalizeRole(role)]
 }
 
 function createStarterConversation(role) {
@@ -79,8 +84,8 @@ function resetWorkspace() {
   state.messagesByConversation = {}
 }
 
-function persistSession(profile, role) {
-  localStorage.setItem(storageKeys.token, `mock-${role}-token`)
+function persistSession(token, profile, role) {
+  localStorage.setItem(storageKeys.token, token)
   localStorage.setItem(storageKeys.role, role)
   localStorage.setItem(storageKeys.profile, JSON.stringify(profile))
 }
@@ -115,15 +120,31 @@ function clearSession() {
   resetWorkspace()
 }
 
-function login(role) {
-  const account = getAccount(role)
-  const profile = {
-    name: account.displayName,
-    roleName: account.roleName,
-    role,
-  }
+function buildUserProfile(role, username) {
+  const normalizedRole = normalizeRole(role)
+  const account = getAccount(normalizedRole)
+  const roleMeta = getRoleOption(normalizedRole)
+  const matchedDemoAccount = account?.username === username ? account : null
 
-  persistSession(profile, role)
+  return {
+    name: matchedDemoAccount?.displayName ?? username,
+    username,
+    roleName: matchedDemoAccount?.roleName ?? roleMeta.label,
+    role: normalizedRole,
+  }
+}
+
+function login(session) {
+  const role = normalizeRole(session?.type ?? session?.role)
+  const username = session?.username?.trim()
+  const token = session?.token?.trim()
+
+  if (!token || !username) return
+
+  const profile = buildUserProfile(role, username)
+  const authToken = session?.tokenType ? `${session.tokenType} ${token}` : token
+
+  persistSession(authToken, profile, role)
   state.userProfile = profile
   state.isAuthenticated = true
   resetWorkspace()

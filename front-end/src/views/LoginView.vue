@@ -1,6 +1,7 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { loginWithPassword } from '../api/auth'
 import { mockAccounts, roleOptions } from '../data/mockWorkspace'
 import { useWorkspaceStore } from '../stores/workspace'
 
@@ -74,20 +75,27 @@ async function handleSubmit() {
   isSubmitting.value = true
 
   try {
-    await new Promise((resolve) => setTimeout(resolve, 800))
-
-    const account = mockAccounts[form.role]
-    const isValid =
-      form.username === account.username && form.password === account.password
-
-    if (!isValid) {
-      showToast('error', '账号、密码或角色不匹配，请检查后重试。')
-      return
+    const payload = {
+      type: form.role,
+      username: form.username.trim(),
+      password: form.password,
     }
+    const authData = await loginWithPassword(payload)
 
-    login(form.role)
-    showToast('success', `${account.roleName}登录成功，正在进入对话工作台。`)
+    login({
+      token: authData.token,
+      tokenType: authData.tokenType,
+      type: authData.type ?? payload.type,
+      username: authData.username ?? payload.username,
+    })
+
+    showToast('success', `${activeRole.value.label}登录成功，正在进入对话工作台。`)
     await router.push('/chat')
+  } catch (error) {
+    showToast(
+      'error',
+      error instanceof Error ? error.message : '登录失败，请稍后重试。',
+    )
   } finally {
     isSubmitting.value = false
   }
@@ -190,7 +198,7 @@ fillDemoAccount()
               </div>
 
               <button type="button" class="ghost-button" @click="fillDemoAccount">
-                填入账号
+                填入演示账号
               </button>
             </div>
 
