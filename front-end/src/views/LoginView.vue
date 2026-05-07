@@ -2,7 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { loginWithPassword } from '../api/auth'
-import { mockAccounts, roleOptions } from '../data/mockWorkspace'
+import { roleOptions } from '../data/mockWorkspace'
 import { useWorkspaceStore } from '../stores/workspace'
 
 const router = useRouter()
@@ -42,17 +42,10 @@ function showToast(type, text) {
   }, 2600)
 }
 
-function fillDemoAccount() {
-  const account = mockAccounts[form.role]
-  form.username = account.username
-  form.password = account.password
-}
-
 function handleRoleChange(role) {
   if (form.role === role) return
 
   form.role = role
-  fillDemoAccount()
 }
 
 function validateForm() {
@@ -100,8 +93,6 @@ async function handleSubmit() {
     isSubmitting.value = false
   }
 }
-
-fillDemoAccount()
 </script>
 
 <template>
@@ -189,18 +180,6 @@ fillDemoAccount()
               <input v-model="form.remember" type="checkbox" />
               <span>记住当前设备的登录状态</span>
             </label>
-
-            <div class="helper-row">
-              <div class="demo-tip">
-                <p>员工：`employee01 / 123456`</p>
-                <p>部门管理者：`manager01 / manager123`</p>
-                <p>管理员：`admin01 / admin123`</p>
-              </div>
-
-              <button type="button" class="ghost-button" @click="fillDemoAccount">
-                填入演示账号
-              </button>
-            </div>
 
             <button class="submit-button" type="submit" :disabled="isSubmitting">
               {{ isSubmitting ? '正在验证身份...' : `以${activeRole.label}身份登录` }}
