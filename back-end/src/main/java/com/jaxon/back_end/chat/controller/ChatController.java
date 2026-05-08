@@ -2,6 +2,7 @@ package com.jaxon.back_end.chat.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,5 +30,10 @@ public class ChatController {
     @GetMapping("/sessions")
     public Result<List<ChatSessionDTO>> findCurrentUserSessions(){
         return Result.ok(chatService.findCurrentUserSessions());
+    }
+
+    @PostMapping("/newSession")
+    public Result<ChatSessionDTO> insertNewSession(){
+        return Result.ok(chatService.insertNewSession());
     }
 }

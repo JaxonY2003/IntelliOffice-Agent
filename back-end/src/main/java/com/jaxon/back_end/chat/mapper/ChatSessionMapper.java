@@ -15,4 +15,6 @@ public interface ChatSessionMapper extends BaseMapper<ChatSession>{
     List<ChatSessionDTO> findByUserIdAndUserType(
             @Param("userId") Long userId,
             @Param("userType") String userType);
+
+    int insertNewSession(@Param("chatSession") ChatSession chatSession);
 }

@@ -608,6 +608,11 @@ button {
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.14);
 }
 
+.new-chat-button:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
 .conversation-pane {
   display: flex;
   flex-direction: column;

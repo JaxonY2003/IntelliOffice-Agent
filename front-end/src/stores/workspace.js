@@ -1,5 +1,5 @@
 import { computed, reactive } from 'vue'
-import { fetchChatSessions, fetchSessionMessages } from '../api/chat'
+import { createChatSession, fetchChatSessions, fetchSessionMessages } from '../api/chat'
 import { mockAccounts, roleOptions } from '../data/mockWorkspace'
 
 const storageKeys = {
@@ -13,6 +13,7 @@ const state = reactive({
   isAuthenticated: false,
   isLoadingSessions: false,
   isLoadingMessages: false,
+  isCreatingConversation: false,
   userProfile: null,
   conversations: [],
   currentConversationId: '',
@@ -43,6 +44,7 @@ function resetWorkspace() {
   state.messagesByConversation = {}
   state.isLoadingSessions = false
   state.isLoadingMessages = false
+  state.isCreatingConversation = false
 }
 
 function getSessionStorages() {
@@ -320,7 +322,30 @@ async function selectConversation(id) {
 }
 
 async function createConversation() {
-  return false
+  if (!state.isAuthenticated) {
+    return null
+  }
+
+  state.isCreatingConversation = true
+
+  try {
+    const createdSession = await createChatSession()
+    const mappedConversation = mapConversation(createdSession)
+
+    state.conversations = [
+      mappedConversation,
+      ...state.conversations.filter((item) => item.id !== mappedConversation.id),
+    ]
+    state.currentConversationId = mappedConversation.id
+    state.messagesByConversation = {
+      ...state.messagesByConversation,
+      [mappedConversation.id]: [],
+    }
+
+    return mappedConversation
+  } finally {
+    state.isCreatingConversation = false
+  }
 }
 
 async function deleteConversation() {

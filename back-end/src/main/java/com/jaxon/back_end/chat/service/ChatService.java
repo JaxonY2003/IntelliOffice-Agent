@@ -1,6 +1,7 @@
 package com.jaxon.back_end.chat.service;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
@@ -48,6 +49,24 @@ public class ChatService {
         return chatSessionMapper.findByUserIdAndUserType(currentUser.getUserId(), currentUser.getUserType());
     }
 
+    public ChatSessionDTO insertNewSession(){
+        LoginUser currentUser = getCurrentLoginUser();
+        ChatSession newSession = new ChatSession();
+        newSession.setUserId(currentUser.getUserId());
+        newSession.setUserType(currentUser.getUserType());
+        newSession.setTitle("新建会话");
+        int affectedRows = chatSessionMapper.insertNewSession(newSession);
+        if (affectedRows != 1 || newSession.getId() == null) {
+            throw new IllegalStateException("Failed to create chat session");
+        }
+
+        ChatSessionDTO chatSessionDTO = new ChatSessionDTO();
+        chatSessionDTO.setId(newSession.getId());
+        chatSessionDTO.setTitle(newSession.getTitle());
+        chatSessionDTO.setCreateTime(resolveCreateTime(newSession.getCreateTime()));
+        return chatSessionDTO;
+    }
+
     private LoginUser getCurrentLoginUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getPrincipal() == null) {
@@ -58,5 +77,11 @@ public class ChatService {
         }
         return loginUser;
     }
+
+    private LocalDateTime resolveCreateTime(LocalDateTime createTime) {
+        return createTime != null ? createTime : LocalDateTime.now();
+    }
+
+
 
 }

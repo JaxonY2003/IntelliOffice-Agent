@@ -41,6 +41,7 @@ const userAvatarText = computed(() => {
 })
 const isLoadingSessions = computed(() => state.isLoadingSessions)
 const isLoadingMessages = computed(() => state.isLoadingMessages)
+const isCreatingConversation = computed(() => state.isCreatingConversation)
 const hasConversations = computed(() => conversations.value.length > 0)
 const currentConversationTitle = computed(() => {
   if (isLoadingSessions.value && !currentConversation.value) {
@@ -100,9 +101,16 @@ function handleComposerKeydown(event) {
 }
 
 async function handleCreateConversation() {
-  const isCreated = await createConversation()
-  if (!isCreated) {
-    showToast('error', '后端暂未开放新建会话接口。')
+  try {
+    const createdConversation = await createConversation()
+    if (!createdConversation) {
+      showToast('error', '新建会话失败，请稍后重试。')
+      return
+    }
+
+    showToast('success', '新会话已创建。')
+  } catch (error) {
+    showToast('error', getErrorMessage(error, '新建会话失败，请稍后重试。'))
   }
 }
 
@@ -174,9 +182,10 @@ onMounted(() => {
           v-if="sidebarOpen"
           type="button"
           class="new-chat-button"
+          :disabled="isCreatingConversation"
           @click="handleCreateConversation"
         >
-          新建对话
+          {{ isCreatingConversation ? '创建中...' : '新建对话' }}
         </button>
 
         <div v-if="sidebarOpen" class="conversation-pane">

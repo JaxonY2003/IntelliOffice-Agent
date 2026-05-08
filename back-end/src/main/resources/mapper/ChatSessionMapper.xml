@@ -16,4 +16,9 @@
         ORDER BY update_time DESC, id DESC
     </select>
 
+    <insert id="insertNewSession" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO chat_session (user_id, user_type, title)
+        VALUES (#{chatSession.userId}, #{chatSession.userType}, #{chatSession.title})
+    </insert>
+
 </mapper>
