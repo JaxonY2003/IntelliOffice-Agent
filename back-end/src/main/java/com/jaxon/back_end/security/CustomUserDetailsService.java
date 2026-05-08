@@ -2,12 +2,11 @@ package com.jaxon.back_end.security;
 
 import java.util.Locale;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import com.jaxon.back_end.common.login.LoginUser;
 import com.jaxon.back_end.identity.entity.Admin;
 import com.jaxon.back_end.identity.entity.Employee;
 import com.jaxon.back_end.identity.entity.Manager;
@@ -23,14 +22,11 @@ public class CustomUserDetailsService {
 
     private static final String TYPE_SEPARATOR = ":";
 
-    @Autowired
-    private EmployeeMapper employeeMapper;
-    @Autowired
-    private ManagerMapper managerMapper;
-    @Autowired
-    private AdminMapper adminMapper;
+    private final EmployeeMapper employeeMapper;
+    private final ManagerMapper managerMapper;
+    private final AdminMapper adminMapper;
 
-    public UserDetails loadByTypeAndUsername(String type, String username) {
+    public LoginUser loadByTypeAndUsername(String type, String username) {
         String normalizedType = normalizeType(type);
         String normalizedUsername = normalizeUsername(username);
 
@@ -49,7 +45,7 @@ public class CustomUserDetailsService {
     }
 
     // Compatibility helper for flows that pass "TYPE:username" as a combined principal.
-    public UserDetails loadUserByUsername(String combinedPrincipal) {
+    public LoginUser loadUserByUsername(String combinedPrincipal) {
         if (combinedPrincipal == null || combinedPrincipal.isBlank()) {
             throw new UsernameNotFoundException("Principal must not be blank");
         }
@@ -62,25 +58,16 @@ public class CustomUserDetailsService {
         return loadByTypeAndUsername(parts[0], parts[1]);
     }
 
-    private UserDetails buildEmployeeUserDetails(Employee employee) {
-        return User.withUsername(employee.getUsername())
-                .password(employee.getPassword())
-                .roles("EMPLOYEE")
-                .build();
+    private LoginUser buildEmployeeUserDetails(Employee employee) {
+        return buildLoginUser(employee.getId(), employee.getUsername(), employee.getPassword(), "EMPLOYEE");
     }
 
-    private UserDetails buildManagerUserDetails(Manager manager) {
-        return User.withUsername(manager.getUsername())
-                .password(manager.getPassword())
-                .roles("MANAGER")
-                .build();
+    private LoginUser buildManagerUserDetails(Manager manager) {
+        return buildLoginUser(manager.getId(), manager.getUsername(), manager.getPassword(), "MANAGER");
     }
 
-    private UserDetails buildAdminUserDetails(Admin admin) {
-        return User.withUsername(admin.getUsername())
-                .password(admin.getPassword())
-                .roles("ADMIN")
-                .build();
+    private LoginUser buildAdminUserDetails(Admin admin) {
+        return buildLoginUser(admin.getId(), admin.getUsername(), admin.getPassword(), "ADMIN");
     }
 
     private String normalizeType(String type) {
@@ -99,5 +86,15 @@ public class CustomUserDetailsService {
 
     private UsernameNotFoundException userNotFound(String type, String username) {
         return new UsernameNotFoundException("User not found for type " + type + ": " + username);
+    }
+
+    private LoginUser buildLoginUser(Long userId, String username, String password, String userType) {
+        return LoginUser.builder()
+                .userId(userId)
+                .username(username)
+                .password(password)
+                .userType(userType)
+                .authorities(AuthorityUtils.createAuthorityList("ROLE_" + userType))
+                .build();
     }
 }

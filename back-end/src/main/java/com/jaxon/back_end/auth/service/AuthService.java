@@ -2,6 +2,7 @@ package com.jaxon.back_end.auth.service;
 
 import java.util.Locale;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -12,15 +13,16 @@ import com.jaxon.back_end.auth.dto.LoginResponse;
 import com.jaxon.back_end.security.CustomUserDetailsService;
 import com.jaxon.back_end.security.JwtService;
 
-import lombok.RequiredArgsConstructor;
 
 @Service
-@RequiredArgsConstructor
 public class AuthService {
 
-    private final CustomUserDetailsService customUserDetailsService;
-    private final JwtService jwtService;
-    private final PasswordEncoder passwordEncoder;
+    @Autowired
+    private CustomUserDetailsService customUserDetailsService;
+    @Autowired
+    private JwtService jwtService;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
     
     public LoginResponse login(LoginRequest request){
         validateLoginRequest(request);

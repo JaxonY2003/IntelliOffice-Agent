@@ -1,5 +1,6 @@
 package com.jaxon.back_end.common.exception;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -24,6 +25,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public Result<?> handleBadCredentialsException(BadCredentialsException e){
         return Result.fail(ResultCodeEnum.ADMIN_ACCOUNT_ERROR.getCode(), ResultCodeEnum.ADMIN_ACCOUNT_ERROR.getMessage());
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public Result<?> handleAccessDeniedException(AccessDeniedException e){
+        return Result.fail(ResultCodeEnum.ADMIN_ACCESS_FORBIDDEN.getCode(), ResultCodeEnum.ADMIN_ACCESS_FORBIDDEN.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

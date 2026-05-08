@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jaxon.back_end.chat.mapper.ChatMessageMapper">
+
+    <select id="findBySessionId" resultType="com.jaxon.back_end.chat.dto.ChatMessageDTO">
+        SELECT
+            id,
+            sender_type AS senderType,
+            content,
+            message_type AS messageType,
+            create_time AS createTime
+        FROM chat_message
+        WHERE session_id = #{sessionId}
+          AND is_deleted = 0
+        ORDER BY create_time ASC, id ASC
+    </select>
+
+</mapper>

@@ -15,6 +15,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import com.jaxon.back_end.common.login.LoginUser;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -36,6 +38,7 @@ public class JwtService {
 
         claims.put("authorities", extractAuthorities(userDetails));
         claims.put("type", extractType(userDetails));
+        claims.put("userId", extractUserId(userDetails));
 
         return Jwts.builder()
             .claims(claims)
@@ -53,6 +56,10 @@ public class JwtService {
 
     public String extractType(String token) {
         return extractAllClaims(token).get("type", String.class);
+    }
+
+    public Long extractUserId(String token) {
+        return extractAllClaims(token).get("userId", Long.class);
     }
 
     // 判断 token 是否有效
@@ -112,6 +119,13 @@ public class JwtService {
                 .stream()
                 .map(GrantedAuthority::getAuthority)
                 .anyMatch(expectedAuthority::equals);
+    }
+
+    private Long extractUserId(UserDetails userDetails) {
+        if (userDetails instanceof LoginUser loginUser) {
+            return loginUser.getUserId();
+        }
+        throw new IllegalArgumentException("UserDetails is not an instance of LoginUser");
     }
 
     private byte[] hashSecret(String rawSecret) {

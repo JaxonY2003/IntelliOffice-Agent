@@ -5,7 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-@MapperScan("com.jaxon.back_end.identity.mapper")
+@MapperScan("com.jaxon.back_end")
 public class BackEndApplication {
 
 	public static void main(String[] args) {
