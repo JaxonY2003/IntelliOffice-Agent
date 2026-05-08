@@ -7,6 +7,7 @@ import com.jaxon.back_end.common.entity.BaseEntity;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
+import lombok.ToString;
 
 @Data
 @Schema(description = "员工")
@@ -21,6 +22,7 @@ public class Employee extends BaseEntity{
     @Schema(description = "密码")
     @TableField(value = "password")
     @JsonIgnore
+    @ToString.Exclude
     private String password;
 
     @Schema(description = "部门")

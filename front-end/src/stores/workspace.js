@@ -84,26 +84,59 @@ function resetWorkspace() {
   state.messagesByConversation = {}
 }
 
-function persistSession(token, profile, role) {
-  localStorage.setItem(storageKeys.token, token)
-  localStorage.setItem(storageKeys.role, role)
-  localStorage.setItem(storageKeys.profile, JSON.stringify(profile))
+function getSessionStorages() {
+  return [sessionStorage, localStorage]
+}
+
+function clearSessionFromStorage(storage) {
+  storage.removeItem(storageKeys.token)
+  storage.removeItem(storageKeys.role)
+  storage.removeItem(storageKeys.profile)
+}
+
+function readSessionFromStorage(storage) {
+  const token = storage.getItem(storageKeys.token)
+  const role = storage.getItem(storageKeys.role)
+  const rawProfile = storage.getItem(storageKeys.profile)
+
+  if (!token || !role || !rawProfile) {
+    return null
+  }
+
+  return {
+    token,
+    role,
+    rawProfile,
+  }
+}
+
+function persistSession(token, profile, role, remember) {
+  const targetStorage = remember ? localStorage : sessionStorage
+
+  getSessionStorages().forEach(clearSessionFromStorage)
+
+  targetStorage.setItem(storageKeys.token, token)
+  targetStorage.setItem(storageKeys.role, role)
+  targetStorage.setItem(storageKeys.profile, JSON.stringify(profile))
 }
 
 function hydrateSession() {
-  const token = localStorage.getItem(storageKeys.token)
-  const role = localStorage.getItem(storageKeys.role)
-  const rawProfile = localStorage.getItem(storageKeys.profile)
+  const storedSession =
+    readSessionFromStorage(sessionStorage) ?? readSessionFromStorage(localStorage)
 
-  if (!token || !role || !rawProfile) {
+  if (!storedSession) {
     state.initialized = true
     return
   }
 
   try {
-    state.userProfile = JSON.parse(rawProfile)
+    const normalizedRole = normalizeRole(storedSession.role)
+    state.userProfile = {
+      ...JSON.parse(storedSession.rawProfile),
+      role: normalizedRole,
+    }
     state.isAuthenticated = true
-    ensureWorkspaceSeed(role)
+    ensureWorkspaceSeed(normalizedRole)
   } catch {
     clearSession()
   } finally {
@@ -112,9 +145,7 @@ function hydrateSession() {
 }
 
 function clearSession() {
-  localStorage.removeItem(storageKeys.token)
-  localStorage.removeItem(storageKeys.role)
-  localStorage.removeItem(storageKeys.profile)
+  getSessionStorages().forEach(clearSessionFromStorage)
   state.isAuthenticated = false
   state.userProfile = null
   resetWorkspace()
@@ -138,13 +169,14 @@ function login(session) {
   const role = normalizeRole(session?.type ?? session?.role)
   const username = session?.username?.trim()
   const token = session?.token?.trim()
+  const remember = session?.remember ?? true
 
   if (!token || !username) return
 
   const profile = buildUserProfile(role, username)
   const authToken = session?.tokenType ? `${session.tokenType} ${token}` : token
 
-  persistSession(authToken, profile, role)
+  persistSession(authToken, profile, role, remember)
   state.userProfile = profile
   state.isAuthenticated = true
   resetWorkspace()

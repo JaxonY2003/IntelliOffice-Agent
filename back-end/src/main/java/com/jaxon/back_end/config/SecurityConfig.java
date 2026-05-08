@@ -1,5 +1,7 @@
 package com.jaxon.back_end.config;
 
+import java.io.IOException;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -9,11 +11,17 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jaxon.back_end.common.result.Result;
+import com.jaxon.back_end.common.result.ResultCodeEnum;
 import com.jaxon.back_end.security.JwtAuthenticationFilter;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 @Configuration
@@ -22,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ObjectMapper objectMapper;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -47,13 +56,49 @@ public class SecurityConfig {
                 // 除上述路径外，其他路径都需要认证
                 .anyRequest().authenticated()
             )
+            .exceptionHandling(exception -> exception
+                .authenticationEntryPoint(authenticationEntryPoint())
+                .accessDeniedHandler(accessDeniedHandler())
+            )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
     @Bean
+    public AuthenticationEntryPoint authenticationEntryPoint() {
+        return (request, response, authException) -> {
+            Object jwtError = request.getAttribute(JwtAuthenticationFilter.JWT_ERROR_ATTRIBUTE);
+
+            ResultCodeEnum resultCodeEnum = jwtError instanceof ResultCodeEnum
+                    ? (ResultCodeEnum) jwtError
+                    : ResultCodeEnum.ADMIN_LOGIN_AUTH;
+
+            writeJsonResponse(
+                    response,
+                    HttpServletResponse.SC_UNAUTHORIZED,
+                    Result.fail(resultCodeEnum.getCode(), resultCodeEnum.getMessage()));
+        };
+    }
+
+    @Bean
+    public AccessDeniedHandler accessDeniedHandler() {
+        return (request, response, accessDeniedException) -> writeJsonResponse(
+                response,
+                HttpServletResponse.SC_FORBIDDEN,
+                Result.fail(
+                        ResultCodeEnum.ADMIN_ACCESS_FORBIDDEN.getCode(),
+                        ResultCodeEnum.ADMIN_ACCESS_FORBIDDEN.getMessage()));
+    }
+
+    @Bean
     public PasswordEncoder passwordEncoder(){
         return new BCryptPasswordEncoder();
+    }
+
+    private void writeJsonResponse(HttpServletResponse response, int status, Result<?> body) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json;charset=UTF-8");
+        objectMapper.writeValue(response.getWriter(), body);
     }
     
 }

@@ -9,6 +9,9 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.jaxon.back_end.common.result.ResultCodeEnum;
+
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -22,6 +25,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+    public static final String JWT_ERROR_ATTRIBUTE = "jwt_error";
 
     private final JwtService jwtService;
     private final CustomUserDetailsService customUserDetailsService;
@@ -63,8 +67,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authenticationToken);
                 }
             }
+        } catch (ExpiredJwtException ex) {
+            SecurityContextHolder.clearContext();
+            request.setAttribute(JWT_ERROR_ATTRIBUTE, ResultCodeEnum.TOKEN_EXPIRED);
         } catch (JwtException | IllegalArgumentException ex) {
             SecurityContextHolder.clearContext();
+            request.setAttribute(JWT_ERROR_ATTRIBUTE, ResultCodeEnum.TOKEN_INVALID);
         }
 
         filterChain.doFilter(request, response);

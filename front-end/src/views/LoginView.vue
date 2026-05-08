@@ -80,6 +80,7 @@ async function handleSubmit() {
       tokenType: authData.tokenType,
       type: authData.type ?? payload.type,
       username: authData.username ?? payload.username,
+      remember: form.remember,
     })
 
     showToast('success', `${activeRole.value.label}登录成功，正在进入对话工作台。`)
