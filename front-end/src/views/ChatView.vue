@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import sidebarPanelIcon from '../assets/celan.png'
 import { useWorkspaceStore } from '../stores/workspace'
 
 const router = useRouter()
@@ -28,6 +29,15 @@ let toastTimer = null
 const userProfile = computed(() => state.userProfile)
 const conversations = computed(() => state.conversations)
 const currentConversationId = computed(() => state.currentConversationId)
+const sidebarToggleLabel = computed(() => (sidebarOpen.value ? '收起侧栏' : '展开侧栏'))
+const userAvatarImage = computed(() => {
+  const candidate = userProfile.value?.avatarUrl ?? userProfile.value?.avatar ?? ''
+  return typeof candidate === 'string' ? candidate.trim() : ''
+})
+const userAvatarText = computed(() => {
+  const label = userProfile.value?.name?.trim() || workspaceRole.value?.label || 'U'
+  return label.slice(0, 1)
+})
 
 function showToast(type, text) {
   if (toastTimer) clearTimeout(toastTimer)
@@ -85,9 +95,9 @@ async function handleLogout() {
     </transition>
 
     <section class="workspace-shell" :class="{ 'sidebar-collapsed': !sidebarOpen }">
-      <aside class="workspace-sidebar" :class="{ hidden: !sidebarOpen }">
+      <aside class="workspace-sidebar">
         <div class="workspace-sidebar-top">
-          <div class="workspace-brand">
+          <div v-if="sidebarOpen" class="workspace-brand">
             <div class="brand-mark">IA</div>
             <div>
               <p class="brand-label">IntelliOffice</p>
@@ -95,24 +105,22 @@ async function handleLogout() {
             </div>
           </div>
 
-          <button type="button" class="sidebar-toggle ghost-dark" @click="toggleSidebar">
-            收起
+          <button
+            type="button"
+            class="sidebar-icon-button"
+            :aria-label="sidebarToggleLabel"
+            :title="sidebarToggleLabel"
+            @click="toggleSidebar"
+          >
+            <img class="sidebar-icon-image" :src="sidebarPanelIcon" alt="" aria-hidden="true" />
           </button>
         </div>
 
-        <div class="profile-card">
-          <div class="avatar-ring">{{ userProfile?.name?.slice(0, 1) }}</div>
-          <div class="profile-copy">
-            <strong>{{ userProfile?.name }}</strong>
-            <span>{{ userProfile?.roleName }}</span>
-          </div>
-        </div>
-
-        <button type="button" class="new-chat-button" @click="createConversation">
+        <button v-if="sidebarOpen" type="button" class="new-chat-button" @click="createConversation">
           新建对话
         </button>
 
-        <div class="conversation-pane">
+        <div v-if="sidebarOpen" class="conversation-pane">
           <p class="sidebar-title">聊天记录</p>
           <div class="conversation-scroll">
             <div
@@ -142,20 +150,43 @@ async function handleLogout() {
         </div>
 
         <div class="sidebar-footer">
-          <div class="footer-mini-card">
-            <span>当前身份</span>
-            <strong>{{ workspaceRole.label }}</strong>
+          <div class="footer-mini-card" :class="{ compact: !sidebarOpen }">
+            <div class="avatar-menu">
+              <button
+                type="button"
+                class="footer-avatar-button"
+                aria-label="打开个人菜单"
+                title="个人菜单"
+              >
+                <div class="footer-avatar">
+                  <img
+                    v-if="userAvatarImage"
+                    class="avatar-image"
+                    :src="userAvatarImage"
+                    :alt="`${userProfile?.name || workspaceRole.label}头像`"
+                  />
+                  <span v-else>{{ userAvatarText }}</span>
+                </div>
+              </button>
+
+              <div class="avatar-menu-popover">
+                <button type="button" class="avatar-menu-item">个人信息</button>
+                <button type="button" class="avatar-menu-item danger" @click="handleLogout">
+                  退出登录
+                </button>
+              </div>
+            </div>
+            <div v-if="sidebarOpen" class="footer-mini-copy">
+              <span>当前身份</span>
+              <strong>{{ workspaceRole.label }}</strong>
+            </div>
           </div>
-          <button type="button" class="logout-button" @click="handleLogout">退出登录</button>
         </div>
       </aside>
 
       <section class="chat-stage">
         <header class="chat-topbar">
           <div class="chat-topbar-left">
-            <button type="button" class="sidebar-toggle light" @click="toggleSidebar">
-              {{ sidebarOpen ? '隐藏侧栏' : '显示侧栏' }}
-            </button>
             <div>
               <p class="topbar-kicker">AI Workspace</p>
               <h1>{{ currentConversation?.title || '新的对话' }}</h1>
