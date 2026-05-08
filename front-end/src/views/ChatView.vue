@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import sidebarPanelIcon from '../assets/celan.png'
 import { useWorkspaceStore } from '../stores/workspace'
@@ -10,6 +10,7 @@ const {
   logout,
   createConversation,
   deleteConversation,
+  loadConversations,
   selectConversation,
   appendUserMessage,
   workspaceRole,
@@ -38,6 +39,16 @@ const userAvatarText = computed(() => {
   const label = userProfile.value?.name?.trim() || workspaceRole.value?.label || 'U'
   return label.slice(0, 1)
 })
+const isLoadingSessions = computed(() => state.isLoadingSessions)
+const isLoadingMessages = computed(() => state.isLoadingMessages)
+const hasConversations = computed(() => conversations.value.length > 0)
+const currentConversationTitle = computed(() => {
+  if (isLoadingSessions.value && !currentConversation.value) {
+    return '正在加载会话...'
+  }
+
+  return currentConversation.value?.title || '聊天工作台'
+})
 
 function showToast(type, text) {
   if (toastTimer) clearTimeout(toastTimer)
@@ -53,6 +64,18 @@ function showToast(type, text) {
   }, 2600)
 }
 
+function getErrorMessage(error, fallbackText) {
+  return error instanceof Error ? error.message : fallbackText
+}
+
+async function initializeChatWorkspace() {
+  try {
+    await loadConversations()
+  } catch (error) {
+    showToast('error', getErrorMessage(error, '聊天数据加载失败，请稍后重试。'))
+  }
+}
+
 async function sendMessage() {
   const text = messageDraft.value.trim()
   if (!text) {
@@ -60,8 +83,13 @@ async function sendMessage() {
     return
   }
 
+  const isSent = await appendUserMessage(text)
+  if (!isSent) {
+    showToast('error', '发送消息接口尚未接入，当前先展示后端历史消息。')
+    return
+  }
+
   messageDraft.value = ''
-  await appendUserMessage(text)
 }
 
 function handleComposerKeydown(event) {
@@ -71,9 +99,29 @@ function handleComposerKeydown(event) {
   }
 }
 
-function handleDeleteConversation(id) {
-  deleteConversation(id)
+async function handleCreateConversation() {
+  const isCreated = await createConversation()
+  if (!isCreated) {
+    showToast('error', '后端暂未开放新建会话接口。')
+  }
+}
+
+async function handleDeleteConversation(id) {
+  const isDeleted = await deleteConversation(id)
+  if (!isDeleted) {
+    showToast('error', '后端暂未开放删除会话接口。')
+    return
+  }
+
   showToast('success', '聊天记录已删除。')
+}
+
+async function handleSelectConversation(id) {
+  try {
+    await selectConversation(id)
+  } catch (error) {
+    showToast('error', getErrorMessage(error, '会话内容加载失败，请稍后重试。'))
+  }
 }
 
 function toggleSidebar() {
@@ -84,6 +132,12 @@ async function handleLogout() {
   logout()
   await router.push('/login')
 }
+
+onMounted(() => {
+  if (state.isAuthenticated) {
+    initializeChatWorkspace()
+  }
+})
 </script>
 
 <template>
@@ -116,7 +170,12 @@ async function handleLogout() {
           </button>
         </div>
 
-        <button v-if="sidebarOpen" type="button" class="new-chat-button" @click="createConversation">
+        <button
+          v-if="sidebarOpen"
+          type="button"
+          class="new-chat-button"
+          @click="handleCreateConversation"
+        >
           新建对话
         </button>
 
@@ -132,7 +191,7 @@ async function handleLogout() {
               <button
                 type="button"
                 class="conversation-main"
-                @click="selectConversation(item.id)"
+                @click="handleSelectConversation(item.id)"
               >
                 <strong>{{ item.title }}</strong>
               </button>
@@ -189,7 +248,7 @@ async function handleLogout() {
           <div class="chat-topbar-left">
             <div>
               <p class="topbar-kicker">AI Workspace</p>
-              <h1>{{ currentConversation?.title || '新的对话' }}</h1>
+              <h1>{{ currentConversationTitle }}</h1>
             </div>
           </div>
           <div class="topbar-chip">Agent Online</div>
@@ -200,17 +259,34 @@ async function handleLogout() {
             <p class="welcome-kicker">Office Agent</p>
             <h3>你好，{{ userProfile?.name }}</h3>
             <p>
-              这里已经接好一个前端聊天工作台。后续接入真实 agent 后，可以继续扩展成知识检索、业务流程和工具调用入口。
+              会话列表和历史消息已经改成从后端读取。后续接入发送、新建和删除接口后，这里可以继续扩展成完整的真实聊天工作台。
             </p>
           </div>
 
+          <div v-if="isLoadingSessions" class="empty-state-card">
+            正在加载你的聊天会话...
+          </div>
+
+          <div v-else-if="!hasConversations" class="empty-state-card">
+            当前还没有可展示的聊天会话。
+          </div>
+
+          <div v-else-if="isLoadingMessages" class="empty-state-card">
+            正在加载会话内容...
+          </div>
+
+          <div v-else-if="currentMessages.length === 0" class="empty-state-card">
+            这个会话暂时还没有消息内容。
+          </div>
+
           <article
+            v-if="!isLoadingSessions && !isLoadingMessages && hasConversations && currentMessages.length > 0"
             v-for="message in currentMessages"
             :key="message.id"
             class="message-row"
             :class="message.sender"
           >
-            <div class="message-badge">{{ message.sender === 'assistant' ? 'AI' : '我' }}</div>
+            <div class="message-badge">{{ message.badge }}</div>
             <div class="message-bubble">
               <div class="message-meta">
                 <strong>{{ message.name }}</strong>
@@ -234,7 +310,7 @@ async function handleLogout() {
               发送
             </button>
           </div>
-          <p class="composer-tip">Enter 发送，Shift + Enter 换行。当前为前端模拟对话界面。</p>
+          <p class="composer-tip">Enter 发送，Shift + Enter 换行。当前已接入会话读取，发送接口待接入。</p>
         </div>
       </section>
     </section>

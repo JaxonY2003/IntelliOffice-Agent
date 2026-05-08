@@ -1,5 +1,6 @@
 import { computed, reactive } from 'vue'
-import { mockAccounts, roleOptions, rolePresets } from '../data/mockWorkspace'
+import { fetchChatSessions, fetchSessionMessages } from '../api/chat'
+import { mockAccounts, roleOptions } from '../data/mockWorkspace'
 
 const storageKeys = {
   token: 'token',
@@ -10,6 +11,8 @@ const storageKeys = {
 const state = reactive({
   initialized: false,
   isAuthenticated: false,
+  isLoadingSessions: false,
+  isLoadingMessages: false,
   userProfile: null,
   conversations: [],
   currentConversationId: '',
@@ -25,63 +28,21 @@ function normalizeRole(role) {
   return role.trim().toLowerCase()
 }
 
+function normalizeConversationId(id) {
+  if (id === null || id === undefined) return ''
+  return String(id)
+}
+
 function getAccount(role) {
   return mockAccounts[normalizeRole(role)]
-}
-
-function createStarterConversation(role) {
-  const preset = rolePresets[role]
-  const roleMeta = getRoleOption(role)
-  const id = `${role}-starter`
-
-  return {
-    conversation: {
-      id,
-      title: preset.starterTitle,
-      preview: preset.firstReply,
-      updatedAt: '刚刚',
-    },
-    messages: [
-      {
-        id: `${id}-assistant-welcome`,
-        sender: 'assistant',
-        name: 'Office Agent',
-        time: '09:30',
-        text: `欢迎进入${roleMeta.workspaceTitle}。`,
-      },
-      {
-        id: `${id}-user`,
-        sender: 'user',
-        name: '我',
-        time: '09:31',
-        text: preset.starterPrompt,
-      },
-      {
-        id: `${id}-assistant`,
-        sender: 'assistant',
-        name: 'Office Agent',
-        time: '09:31',
-        text: preset.firstReply,
-      },
-    ],
-  }
-}
-
-function ensureWorkspaceSeed(role) {
-  if (state.conversations.length > 0) return
-
-  const starter = createStarterConversation(role)
-  state.conversations = [starter.conversation]
-  state.messagesByConversation = {
-    [starter.conversation.id]: starter.messages,
-  }
-  state.currentConversationId = starter.conversation.id
 }
 
 function resetWorkspace() {
   state.conversations = []
   state.currentConversationId = ''
   state.messagesByConversation = {}
+  state.isLoadingSessions = false
+  state.isLoadingMessages = false
 }
 
 function getSessionStorages() {
@@ -136,7 +97,6 @@ function hydrateSession() {
       role: normalizedRole,
     }
     state.isAuthenticated = true
-    ensureWorkspaceSeed(normalizedRole)
   } catch {
     clearSession()
   } finally {
@@ -180,122 +140,195 @@ function login(session) {
   state.userProfile = profile
   state.isAuthenticated = true
   resetWorkspace()
-  ensureWorkspaceSeed(role)
 }
 
 function logout() {
   clearSession()
 }
 
-function selectConversation(id) {
-  state.currentConversationId = id
-}
+function formatMessageTime(value) {
+  if (!value) return ''
 
-function createConversation() {
-  const role = state.userProfile?.role ?? 'employee'
-  const id = `chat-${Date.now()}`
-  const conversation = {
-    id,
-    title: '新的对话',
-    preview: '开始新的问题或任务...',
-    updatedAt: '刚刚',
+  const raw = String(value)
+  if (raw.includes('T') && raw.length >= 16) {
+    return raw.slice(11, 16)
   }
 
-  const welcomeMessage = {
-    id: `${id}-assistant`,
-    sender: 'assistant',
-    name: 'Office Agent',
-    time: '现在',
-    text: `新的对话已创建。你可以继续让我帮你处理${getRoleOption(role).label}相关的问题。`,
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) {
+    return raw
   }
 
-  state.conversations = [conversation, ...state.conversations]
-  state.messagesByConversation = {
-    ...state.messagesByConversation,
-    [id]: [welcomeMessage],
-  }
-  state.currentConversationId = id
-}
-
-function deleteConversation(id) {
-  if (!id || !state.messagesByConversation[id]) return
-
-  const remainingConversations = state.conversations.filter((item) => item.id !== id)
-  const nextMessages = { ...state.messagesByConversation }
-  delete nextMessages[id]
-
-  state.conversations = remainingConversations
-  state.messagesByConversation = nextMessages
-
-  if (state.currentConversationId === id) {
-    state.currentConversationId = remainingConversations[0]?.id ?? ''
-  }
-
-  if (state.conversations.length === 0) {
-    createConversation()
-  }
-}
-
-async function appendUserMessage(text) {
-  const conversationId = state.currentConversationId
-  if (!conversationId) return
-
-  const time = new Date().toLocaleTimeString('zh-CN', {
+  return date.toLocaleTimeString('zh-CN', {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
 
-  const userMessage = {
-    id: `${conversationId}-${Date.now()}-user`,
-    sender: 'user',
-    name: '我',
-    time,
-    text,
+function formatConversationTime(value) {
+  if (!value) return ''
+
+  const raw = String(value)
+  if (raw.includes('T') && raw.length >= 16) {
+    return raw.slice(5, 16).replace('T', ' ')
   }
 
-  state.messagesByConversation = {
-    ...state.messagesByConversation,
-    [conversationId]: [...(state.messagesByConversation[conversationId] ?? []), userMessage],
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) {
+    return raw
   }
 
-  state.conversations = state.conversations.map((item) =>
-    item.id === conversationId
-      ? {
-          ...item,
-          title: item.title === '新的对话' ? text.slice(0, 10) : item.title,
-          preview: text,
-          updatedAt: '刚刚',
-        }
-      : item,
-  )
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 
-  await new Promise((resolve) => setTimeout(resolve, 720))
+function mapConversation(dto) {
+  return {
+    id: normalizeConversationId(dto?.id),
+    title: dto?.title?.trim() || `会话 ${dto?.id ?? ''}`.trim(),
+    preview: '',
+    updatedAt: formatConversationTime(dto?.createTime),
+  }
+}
 
-  const assistantReply = {
-    id: `${conversationId}-${Date.now()}-assistant`,
+function mapSenderTypeToUi(senderType) {
+  const normalizedType = typeof senderType === 'string' ? senderType.trim().toUpperCase() : ''
+
+  if (normalizedType === 'USER') {
+    return {
+      sender: 'user',
+      name: state.userProfile?.name || '我',
+      badge: '我',
+    }
+  }
+
+  if (normalizedType === 'SYSTEM') {
+    return {
+      sender: 'assistant',
+      name: '系统',
+      badge: 'SYS',
+    }
+  }
+
+  return {
     sender: 'assistant',
     name: 'Office Agent',
-    time: new Date().toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
-    text: `已收到你的问题：“${text}”。当前这里先用前端模拟回复，后续接入真实 agent 后，我可以把它替换成流式对话、工具调用和多轮上下文能力。`,
+    badge: 'AI',
   }
+}
 
-  state.messagesByConversation = {
-    ...state.messagesByConversation,
-    [conversationId]: [...state.messagesByConversation[conversationId], assistantReply],
+function mapMessage(dto) {
+  const senderMeta = mapSenderTypeToUi(dto?.senderType)
+
+  return {
+    id: normalizeConversationId(dto?.id),
+    sender: senderMeta.sender,
+    badge: senderMeta.badge,
+    name: senderMeta.name,
+    time: formatMessageTime(dto?.createTime),
+    text: dto?.content ?? '',
+    messageType: dto?.messageType ?? 'TEXT',
+    senderType: dto?.senderType ?? '',
   }
+}
+
+function syncConversationPreview(conversationId, messages) {
+  const latestMessage = messages.at(-1)
 
   state.conversations = state.conversations.map((item) =>
     item.id === conversationId
       ? {
           ...item,
-          preview: assistantReply.text,
-          updatedAt: '刚刚',
+          preview: latestMessage?.text ?? item.preview,
+          updatedAt: latestMessage?.time || item.updatedAt,
         }
       : item,
   )
+}
+
+async function loadConversationMessages(id, options = {}) {
+  const normalizedId = normalizeConversationId(id)
+  const force = options.force === true
+
+  if (!state.isAuthenticated || !normalizedId) {
+    return []
+  }
+
+  state.currentConversationId = normalizedId
+
+  if (!force && state.messagesByConversation[normalizedId]) {
+    return state.messagesByConversation[normalizedId]
+  }
+
+  state.isLoadingMessages = true
+
+  try {
+    const messageList = await fetchSessionMessages(normalizedId)
+    const mappedMessages = Array.isArray(messageList) ? messageList.map(mapMessage) : []
+
+    state.messagesByConversation = {
+      ...state.messagesByConversation,
+      [normalizedId]: mappedMessages,
+    }
+
+    syncConversationPreview(normalizedId, mappedMessages)
+    return mappedMessages
+  } finally {
+    state.isLoadingMessages = false
+  }
+}
+
+async function loadConversations() {
+  if (!state.isAuthenticated) {
+    return []
+  }
+
+  state.isLoadingSessions = true
+
+  try {
+    const sessionList = await fetchChatSessions()
+    const mappedConversations = Array.isArray(sessionList) ? sessionList.map(mapConversation) : []
+    const availableConversationIds = new Set(mappedConversations.map((item) => item.id))
+    const nextCurrentConversationId = availableConversationIds.has(state.currentConversationId)
+      ? state.currentConversationId
+      : mappedConversations[0]?.id ?? ''
+
+    state.conversations = mappedConversations
+    state.currentConversationId = nextCurrentConversationId
+    state.messagesByConversation = Object.fromEntries(
+      Object.entries(state.messagesByConversation).filter(([conversationId]) =>
+        availableConversationIds.has(conversationId),
+      ),
+    )
+
+    if (!nextCurrentConversationId) {
+      return []
+    }
+
+    return await loadConversationMessages(nextCurrentConversationId, { force: true })
+  } finally {
+    state.isLoadingSessions = false
+  }
+}
+
+async function selectConversation(id) {
+  return await loadConversationMessages(id)
+}
+
+async function createConversation() {
+  return false
+}
+
+async function deleteConversation() {
+  return false
+}
+
+async function appendUserMessage() {
+  return false
 }
 
 export function useWorkspaceStore() {
@@ -320,8 +353,10 @@ export function useWorkspaceStore() {
     logout,
     createConversation,
     deleteConversation,
-    selectConversation,
     appendUserMessage,
+    loadConversations,
+    loadConversationMessages,
+    selectConversation,
     workspaceRole,
     currentConversation,
     currentMessages,
