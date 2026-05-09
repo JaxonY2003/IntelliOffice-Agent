@@ -51,9 +51,11 @@ button {
 
 .app-shell.workspace {
   display: block;
+  height: 100vh;
   background:
     radial-gradient(circle at top right, rgba(100, 148, 255, 0.12), transparent 24%),
     linear-gradient(180deg, #f3f5fb 0%, #edf2fa 100%);
+  overflow: hidden;
 }
 
 .app-shell::before,
@@ -513,10 +515,12 @@ button {
 .workspace-shell {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
+  height: 100vh;
   min-height: 100vh;
   padding: 18px;
   gap: 18px;
   transition: grid-template-columns 220ms ease;
+  overflow: hidden;
 }
 
 .workspace-shell.sidebar-collapsed {
@@ -705,18 +709,9 @@ button {
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
 }
 
-.conversation-item.menu-open {
-  z-index: 40;
-}
-
 .conversation-action-menu {
   position: relative;
   flex: 0 0 auto;
-  z-index: 2;
-}
-
-.conversation-action-menu.open {
-  z-index: 80;
 }
 
 .conversation-menu-button {
@@ -746,11 +741,9 @@ button {
   filter: brightness(0) invert(1);
 }
 
-.conversation-menu-popover {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 120;
+.conversation-floating-menu {
+  position: fixed;
+  z-index: 220;
   display: grid;
   gap: 4px;
   min-width: 120px;
@@ -759,18 +752,6 @@ button {
   background: rgba(20, 30, 50, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 18px 32px rgba(6, 10, 20, 0.28);
-  opacity: 0;
-  transform: translateY(-8px);
-  pointer-events: none;
-  transition:
-    opacity 180ms ease,
-    transform 180ms ease;
-}
-
-.conversation-action-menu.open .conversation-menu-popover {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
 }
 
 .conversation-menu-item {
@@ -954,7 +935,8 @@ button {
 .chat-stage {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  min-height: calc(100vh - 36px);
+  min-height: 0;
+  height: calc(100vh - 36px);
   padding: 18px 18px 16px;
   border-radius: 30px;
   background:
@@ -965,6 +947,7 @@ button {
     0 24px 60px rgba(19, 30, 52, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(20px);
+  overflow: hidden;
 }
 
 .chat-topbar {
@@ -1042,8 +1025,10 @@ button {
   align-content: start;
   gap: 18px;
   min-height: 0;
+  height: 100%;
   padding: 8px 6px 12px;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .welcome-panel {
@@ -1146,6 +1131,11 @@ button {
   color: rgba(216, 226, 255, 0.72);
 }
 
+.message-row.pending .message-bubble {
+  border-style: dashed;
+  opacity: 0.88;
+}
+
 .message-bubble p {
   margin: 0;
   line-height: 1.72;
@@ -1153,6 +1143,7 @@ button {
 }
 
 .composer-shell {
+  flex: 0 0 auto;
   padding-top: 12px;
 }
 
@@ -1168,6 +1159,11 @@ button {
   box-shadow: 0 18px 34px rgba(20, 32, 58, 0.08);
 }
 
+.composer-box.is-busy {
+  border-color: rgba(95, 143, 255, 0.38);
+  box-shadow: 0 18px 34px rgba(95, 143, 255, 0.14);
+}
+
 .composer-input {
   min-height: 56px;
   max-height: 180px;
@@ -1180,6 +1176,11 @@ button {
   resize: vertical;
 }
 
+.composer-input:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
 .composer-send {
   padding: 14px 18px;
   border-radius: 18px;
@@ -1187,6 +1188,12 @@ button {
   color: #fff;
   font-weight: 800;
   box-shadow: 0 14px 28px rgba(95, 143, 255, 0.22);
+}
+
+.composer-send:disabled {
+  opacity: 0.74;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .composer-tip {
@@ -1385,6 +1392,7 @@ button {
   }
 
   .workspace-shell {
+    height: auto;
     grid-template-columns: 1fr;
   }
 
@@ -1399,6 +1407,7 @@ button {
 
   .chat-stage {
     order: 2;
+    height: auto;
     min-height: 70vh;
   }
 }
@@ -1480,14 +1489,8 @@ button {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .conversation-menu-popover {
-    right: 0;
-    top: calc(100% + 8px);
-    transform: translateY(-8px);
-  }
-
-  .conversation-action-menu.open .conversation-menu-popover {
-    transform: translateY(0);
+  .conversation-floating-menu {
+    max-width: calc(100vw - 24px);
   }
 
   .composer-send {

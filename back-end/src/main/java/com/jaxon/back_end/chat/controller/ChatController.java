@@ -3,12 +3,15 @@ package com.jaxon.back_end.chat.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.jaxon.back_end.chat.dto.ChatMessageDTO;
 import com.jaxon.back_end.chat.dto.ChatSessionDTO;
+import com.jaxon.back_end.chat.dto.SendMessageRequest;
+import com.jaxon.back_end.chat.dto.SendMessageResponse;
 import com.jaxon.back_end.chat.service.ChatService;
 import com.jaxon.back_end.common.result.Result;
 
@@ -50,6 +53,10 @@ public class ChatController {
         chatService.resetTitle(newTitle, sessionId);
         return Result.ok();
     }
-    
+
+    @PostMapping("/sendMessage")
+    public Result<SendMessageResponse> sendMessage(@RequestBody SendMessageRequest request) {
+        return Result.ok(chatService.sendMessage(request));
+    }
     
 }

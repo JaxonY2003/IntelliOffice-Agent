@@ -29,6 +29,7 @@ const messageDraft = ref('')
 const sidebarOpen = ref(true)
 const avatarMenuOpen = ref(false)
 const activeConversationMenuId = ref('')
+const activeConversationMenuStyle = ref({})
 const deleteDialogVisible = ref(false)
 const pendingDeleteConversation = ref(null)
 const renameDialogVisible = ref(false)
@@ -51,9 +52,25 @@ const userAvatarText = computed(() => {
 const isLoadingSessions = computed(() => state.isLoadingSessions)
 const isLoadingMessages = computed(() => state.isLoadingMessages)
 const isCreatingConversation = computed(() => state.isCreatingConversation)
+const isSendingMessage = computed(() => state.isSendingMessage)
 const deletingConversationId = computed(() => state.deletingConversationId)
 const renamingConversationId = computed(() => state.renamingConversationId)
 const hasConversations = computed(() => conversations.value.length > 0)
+const sendButtonLabel = computed(() => (isSendingMessage.value ? '思考中...' : '发送'))
+const composerTip = computed(() => {
+  if (!hasConversations.value) {
+    return '请先创建一个聊天会话，再开始对话。'
+  }
+
+  if (isSendingMessage.value) {
+    return '你的问题已经发出，Office Agent 正在思考中，请稍候。'
+  }
+
+  return 'Enter 发送，Shift + Enter 换行。'
+})
+const activeConversationMenu = computed(
+  () => conversations.value.find((item) => item.id === activeConversationMenuId.value) ?? null,
+)
 const currentConversationTitle = computed(() => {
   if (isLoadingSessions.value && !currentConversation.value) {
     return '正在加载会话...'
@@ -95,6 +112,7 @@ function getErrorMessage(error, fallbackText) {
 function closeMenus() {
   avatarMenuOpen.value = false
   activeConversationMenuId.value = ''
+  activeConversationMenuStyle.value = {}
 }
 
 function handleDocumentClick(event) {
@@ -107,8 +125,12 @@ function handleDocumentClick(event) {
     avatarMenuOpen.value = false
   }
 
-  if (!event.target.closest('.conversation-action-menu')) {
+  if (
+    !event.target.closest('.conversation-action-menu')
+    && !event.target.closest('.conversation-floating-menu')
+  ) {
     activeConversationMenuId.value = ''
+    activeConversationMenuStyle.value = {}
   }
 }
 
@@ -127,16 +149,30 @@ async function sendMessage() {
     return
   }
 
-  const isSent = await appendUserMessage(text)
-  if (!isSent) {
-    showToast('error', '发送消息接口尚未接入，当前先展示后端历史消息。')
+  if (isSendingMessage.value) {
+    showToast('error', 'Office Agent 正在回复上一条消息，请稍候。')
     return
   }
 
   messageDraft.value = ''
+
+  try {
+    const isSent = await appendUserMessage(text)
+    if (!isSent) {
+      messageDraft.value = text
+      showToast('error', '消息发送失败，请稍后重试。')
+    }
+  } catch (error) {
+    messageDraft.value = text
+    showToast('error', getErrorMessage(error, '消息发送失败，请稍后重试。'))
+  }
 }
 
 function handleComposerKeydown(event) {
+  if (isSendingMessage.value) {
+    return
+  }
+
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
     sendMessage()
@@ -148,11 +184,33 @@ function toggleAvatarMenu() {
   activeConversationMenuId.value = ''
 }
 
-function toggleConversationMenu(id) {
+function updateConversationMenuPosition(triggerElement) {
+  if (!(triggerElement instanceof HTMLElement)) return
+
+  const rect = triggerElement.getBoundingClientRect()
+  const menuWidth = 140
+  const menuGap = 10
+  const left = Math.min(rect.right + menuGap, window.innerWidth - menuWidth - 12)
+  const top = Math.min(rect.top, window.innerHeight - 110)
+
+  activeConversationMenuStyle.value = {
+    left: `${Math.max(12, left)}px`,
+    top: `${Math.max(12, top)}px`,
+  }
+}
+
+function toggleConversationMenu(id, event) {
   const normalizedId = String(id)
-  activeConversationMenuId.value =
-    activeConversationMenuId.value === normalizedId ? '' : normalizedId
+
+  if (activeConversationMenuId.value === normalizedId) {
+    activeConversationMenuId.value = ''
+    activeConversationMenuStyle.value = {}
+    return
+  }
+
+  activeConversationMenuId.value = normalizedId
   avatarMenuOpen.value = false
+  updateConversationMenuPosition(event?.currentTarget)
 }
 
 async function handleCreateConversation() {
@@ -279,6 +337,8 @@ async function handleLogout() {
 
 onMounted(() => {
   document.addEventListener('click', handleDocumentClick)
+  window.addEventListener('resize', closeMenus)
+  window.addEventListener('scroll', closeMenus, true)
   if (state.isAuthenticated) {
     initializeChatWorkspace()
   }
@@ -286,6 +346,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleDocumentClick)
+  window.removeEventListener('resize', closeMenus)
+  window.removeEventListener('scroll', closeMenus, true)
 })
 </script>
 
@@ -377,6 +439,32 @@ onBeforeUnmount(() => {
       </div>
     </transition>
 
+    <teleport to="body">
+      <div
+        v-if="activeConversationMenu"
+        class="conversation-floating-menu"
+        :style="activeConversationMenuStyle"
+        @click.stop
+      >
+        <button
+          type="button"
+          class="conversation-menu-item"
+          :disabled="renamingConversationId === activeConversationMenu.id"
+          @click.stop="openRenameDialog(activeConversationMenu.id)"
+        >
+          {{ renamingConversationId === activeConversationMenu.id ? '处理中...' : '重命名' }}
+        </button>
+        <button
+          type="button"
+          class="conversation-menu-item danger"
+          :disabled="deletingConversationId === activeConversationMenu.id"
+          @click.stop="handleDeleteConversation(activeConversationMenu.id)"
+        >
+          {{ deletingConversationId === activeConversationMenu.id ? '删除中...' : '删除' }}
+        </button>
+      </div>
+    </teleport>
+
     <section class="workspace-shell" :class="{ 'sidebar-collapsed': !sidebarOpen }">
       <aside class="workspace-sidebar">
         <div class="workspace-sidebar-top">
@@ -416,10 +504,7 @@ onBeforeUnmount(() => {
               v-for="item in conversations"
               :key="item.id"
               class="conversation-item"
-              :class="{
-                active: currentConversationId === item.id,
-                'menu-open': activeConversationMenuId === item.id,
-              }"
+              :class="{ active: currentConversationId === item.id }"
             >
               <button
                 type="button"
@@ -438,7 +523,7 @@ onBeforeUnmount(() => {
                   class="conversation-menu-button"
                   :aria-label="`打开${item.title}更多功能`"
                   :title="`打开${item.title}更多功能`"
-                  @click.stop="toggleConversationMenu(item.id)"
+                  @click.stop="toggleConversationMenu(item.id, $event)"
                 >
                   <img
                     class="conversation-menu-icon"
@@ -447,25 +532,6 @@ onBeforeUnmount(() => {
                     aria-hidden="true"
                   />
                 </button>
-
-                <div class="conversation-menu-popover">
-                  <button
-                    type="button"
-                    class="conversation-menu-item"
-                    :disabled="renamingConversationId === item.id"
-                    @click.stop="openRenameDialog(item.id)"
-                  >
-                    {{ renamingConversationId === item.id ? '处理中...' : '重命名' }}
-                  </button>
-                  <button
-                    type="button"
-                    class="conversation-menu-item danger"
-                    :disabled="deletingConversationId === item.id"
-                    @click.stop="handleDeleteConversation(item.id)"
-                  >
-                    {{ deletingConversationId === item.id ? '删除中...' : '删除' }}
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -524,9 +590,6 @@ onBeforeUnmount(() => {
           <div class="welcome-panel">
             <p class="welcome-kicker">Office Agent</p>
             <h3>你好，{{ userProfile?.name }}</h3>
-            <p>
-              会话列表和历史消息已经改成从后端读取。后续接入发送、新建和删除接口后，这里可以继续扩展成完整的真实聊天工作台。
-            </p>
           </div>
 
           <div v-if="isLoadingSessions" class="empty-state-card">
@@ -550,13 +613,13 @@ onBeforeUnmount(() => {
             v-for="message in currentMessages"
             :key="message.id"
             class="message-row"
-            :class="message.sender"
+            :class="[message.sender, { pending: message.pending }]"
           >
             <div class="message-badge">{{ message.badge }}</div>
             <div class="message-bubble">
               <div class="message-meta">
                 <strong>{{ message.name }}</strong>
-                <span>{{ message.time }}</span>
+                <span>{{ message.pending ? '发送中...' : message.time }}</span>
               </div>
               <p>{{ message.text }}</p>
             </div>
@@ -564,19 +627,25 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="composer-shell">
-          <div class="composer-box">
+          <div class="composer-box" :class="{ 'is-busy': isSendingMessage }">
             <textarea
               v-model="messageDraft"
               class="composer-input"
               placeholder="给 IntelliOffice Agent 发送消息..."
               rows="1"
+              :disabled="isSendingMessage || !hasConversations"
               @keydown="handleComposerKeydown"
             />
-            <button type="button" class="composer-send" @click="sendMessage">
-              发送
+            <button
+              type="button"
+              class="composer-send"
+              :disabled="isSendingMessage || !hasConversations || !messageDraft.trim()"
+              @click="sendMessage"
+            >
+              {{ sendButtonLabel }}
             </button>
           </div>
-          <p class="composer-tip">Enter 发送，Shift + Enter 换行。当前已接入会话读取，发送接口待接入。</p>
+          <p class="composer-tip">{{ composerTip }}</p>
         </div>
       </section>
     </section>

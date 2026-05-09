@@ -5,6 +5,7 @@ import {
   fetchChatSessions,
   fetchSessionMessages,
   renameChatSession,
+  sendChatMessage,
 } from '../api/chat'
 import { mockAccounts, roleOptions } from '../data/mockWorkspace'
 
@@ -20,6 +21,7 @@ const state = reactive({
   isLoadingSessions: false,
   isLoadingMessages: false,
   isCreatingConversation: false,
+  isSendingMessage: false,
   deletingConversationId: '',
   renamingConversationId: '',
   userProfile: null,
@@ -53,6 +55,7 @@ function resetWorkspace() {
   state.isLoadingSessions = false
   state.isLoadingMessages = false
   state.isCreatingConversation = false
+  state.isSendingMessage = false
   state.deletingConversationId = ''
   state.renamingConversationId = ''
 }
@@ -245,6 +248,7 @@ function mapMessage(dto) {
     text: dto?.content ?? '',
     messageType: dto?.messageType ?? 'TEXT',
     senderType: dto?.senderType ?? '',
+    pending: dto?.pending === true,
   }
 }
 
@@ -260,6 +264,35 @@ function syncConversationPreview(conversationId, messages) {
         }
       : item,
   )
+}
+
+function updateConversationPreview(conversationId, preview, updatedAt) {
+  state.conversations = state.conversations.map((item) =>
+    item.id === conversationId
+      ? {
+          ...item,
+          preview: preview ?? item.preview,
+          updatedAt: updatedAt ?? item.updatedAt,
+        }
+      : item,
+  )
+}
+
+function createOptimisticUserMessage(content) {
+  const senderMeta = mapSenderTypeToUi('USER')
+  const currentTime = formatMessageTime(new Date().toISOString())
+
+  return {
+    id: `temp-user-${Date.now()}`,
+    sender: senderMeta.sender,
+    badge: senderMeta.badge,
+    name: senderMeta.name,
+    time: currentTime,
+    text: content,
+    messageType: 'TEXT',
+    senderType: 'USER',
+    pending: true,
+  }
 }
 
 async function loadConversationMessages(id, options = {}) {
@@ -420,8 +453,61 @@ async function renameConversation(id, title) {
   }
 }
 
-async function appendUserMessage() {
-  return false
+async function appendUserMessage(content) {
+  const conversationId = state.currentConversationId
+  const normalizedContent = typeof content === 'string' ? content.trim() : ''
+
+  if (!state.isAuthenticated || !conversationId || !normalizedContent) {
+    return false
+  }
+
+  if (state.isSendingMessage) {
+    throw new Error('Office Agent 正在回复上一条消息，请稍候。')
+  }
+
+  state.isSendingMessage = true
+  const existingMessages = [...(state.messagesByConversation[conversationId] ?? [])]
+  const optimisticUserMessage = createOptimisticUserMessage(normalizedContent)
+  const optimisticMessages = [...existingMessages, optimisticUserMessage]
+
+  state.messagesByConversation = {
+    ...state.messagesByConversation,
+    [conversationId]: optimisticMessages,
+  }
+  updateConversationPreview(conversationId, normalizedContent, optimisticUserMessage.time)
+
+  try {
+    const response = await sendChatMessage({
+      sessionId: Number(conversationId),
+      messageType: 'TEXT',
+      content: normalizedContent,
+    })
+
+    const returnedMessages = [response?.userMessage, response?.agentMessage]
+      .filter(Boolean)
+      .map(mapMessage)
+
+    if (returnedMessages.length === 0) {
+      throw new Error('消息已发送，但未收到有效回复。')
+    }
+
+    const settledMessages = [...existingMessages, ...returnedMessages]
+    state.messagesByConversation = {
+      ...state.messagesByConversation,
+      [conversationId]: settledMessages,
+    }
+    syncConversationPreview(conversationId, settledMessages)
+    return true
+  } catch (error) {
+    state.messagesByConversation = {
+      ...state.messagesByConversation,
+      [conversationId]: existingMessages,
+    }
+    syncConversationPreview(conversationId, existingMessages)
+    throw error
+  } finally {
+    state.isSendingMessage = false
+  }
 }
 
 export function useWorkspaceStore() {

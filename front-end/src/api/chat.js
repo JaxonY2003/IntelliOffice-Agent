@@ -38,3 +38,10 @@ export function fetchSessionMessages(sessionId) {
 
   return requestJson(`/api/chat/messages?${params.toString()}`)
 }
+
+export function sendChatMessage(payload) {
+  return requestJson('/api/chat/sendMessage', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}

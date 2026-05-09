@@ -23,4 +23,9 @@
         WHERE session_id = #{sessionId}
     </update>
 
+    <insert id="insertMessage" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO chat_message (session_id, sender_type, message_type, content)
+        VALUES (#{sessionId}, #{senderType}, #{messageType}, #{content})
+    </insert>
+
 </mapper>
