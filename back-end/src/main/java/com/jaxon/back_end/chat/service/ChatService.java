@@ -8,6 +8,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.jaxon.back_end.chat.dto.ChatMessageDTO;
 import com.jaxon.back_end.chat.dto.ChatSessionDTO;
@@ -31,15 +32,7 @@ public class ChatService {
             throw new IllegalArgumentException("sessionId must not be null");
         }
 
-        LoginUser currentUser = getCurrentLoginUser();
-        ChatSession chatSession = chatSessionMapper.selectById(sessionId);
-        if (chatSession == null) {
-            throw new IllegalArgumentException("Chat session does not exist");
-        }
-        if (!chatSession.getUserId().equals(currentUser.getUserId())
-                || !chatSession.getUserType().equals(currentUser.getUserType())) {
-            throw new AccessDeniedException("You do not have permission to access this session");
-        }
+        requireOwnedSession(sessionId);
 
         return chatMessageMapper.findBySessionId(sessionId);
     }
@@ -67,6 +60,26 @@ public class ChatService {
         return chatSessionDTO;
     }
 
+    @Transactional
+    public void deleteSession(Long sessionId){
+        if (sessionId == null) {
+            throw new IllegalArgumentException("sessionId must not be null");
+        }
+
+        requireOwnedSession(sessionId);
+        chatSessionMapper.deleteSession(sessionId);
+        chatMessageMapper.deleteSessionMessages(sessionId);
+    }
+
+    public void resetTitle(String newTitle, Long sessionId){
+        if (sessionId == null) {
+            throw new IllegalArgumentException("sessionId must not be null");
+        }
+
+        requireOwnedSession(sessionId);
+        chatSessionMapper.resetTitle(newTitle, sessionId);
+    }
+
     private LoginUser getCurrentLoginUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getPrincipal() == null) {
@@ -80,6 +93,19 @@ public class ChatService {
 
     private LocalDateTime resolveCreateTime(LocalDateTime createTime) {
         return createTime != null ? createTime : LocalDateTime.now();
+    }
+
+    private ChatSession requireOwnedSession(Long sessionId) {
+        LoginUser currentUser = getCurrentLoginUser();
+        ChatSession chatSession = chatSessionMapper.selectById(sessionId);
+        if (chatSession == null) {
+            throw new IllegalArgumentException("Chat session does not exist");
+        }
+        if (!chatSession.getUserId().equals(currentUser.getUserId())
+                || !chatSession.getUserType().equals(currentUser.getUserType())) {
+            throw new AccessDeniedException("You do not have permission to access this session");
+        }
+        return chatSession;
     }
 
 

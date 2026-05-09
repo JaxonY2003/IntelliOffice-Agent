@@ -1,5 +1,11 @@
 import { computed, reactive } from 'vue'
-import { createChatSession, fetchChatSessions, fetchSessionMessages } from '../api/chat'
+import {
+  createChatSession,
+  deleteChatSession,
+  fetchChatSessions,
+  fetchSessionMessages,
+  renameChatSession,
+} from '../api/chat'
 import { mockAccounts, roleOptions } from '../data/mockWorkspace'
 
 const storageKeys = {
@@ -14,6 +20,8 @@ const state = reactive({
   isLoadingSessions: false,
   isLoadingMessages: false,
   isCreatingConversation: false,
+  deletingConversationId: '',
+  renamingConversationId: '',
   userProfile: null,
   conversations: [],
   currentConversationId: '',
@@ -45,6 +53,8 @@ function resetWorkspace() {
   state.isLoadingSessions = false
   state.isLoadingMessages = false
   state.isCreatingConversation = false
+  state.deletingConversationId = ''
+  state.renamingConversationId = ''
 }
 
 function getSessionStorages() {
@@ -348,8 +358,66 @@ async function createConversation() {
   }
 }
 
-async function deleteConversation() {
-  return false
+async function deleteConversation(id) {
+  const normalizedId = normalizeConversationId(id)
+
+  if (!state.isAuthenticated || !normalizedId) {
+    return false
+  }
+
+  state.deletingConversationId = normalizedId
+
+  try {
+    await deleteChatSession(normalizedId)
+
+    const remainingConversations = state.conversations.filter((item) => item.id !== normalizedId)
+    const nextMessagesByConversation = { ...state.messagesByConversation }
+    delete nextMessagesByConversation[normalizedId]
+
+    state.conversations = remainingConversations
+    state.messagesByConversation = nextMessagesByConversation
+
+    if (state.currentConversationId === normalizedId) {
+      const nextConversationId = remainingConversations[0]?.id ?? ''
+      state.currentConversationId = nextConversationId
+
+      if (nextConversationId) {
+        await loadConversationMessages(nextConversationId)
+      }
+    }
+
+    return true
+  } finally {
+    state.deletingConversationId = ''
+  }
+}
+
+async function renameConversation(id, title) {
+  const normalizedId = normalizeConversationId(id)
+  const normalizedTitle = typeof title === 'string' ? title.trim() : ''
+
+  if (!state.isAuthenticated || !normalizedId || !normalizedTitle) {
+    return false
+  }
+
+  state.renamingConversationId = normalizedId
+
+  try {
+    await renameChatSession(normalizedId, normalizedTitle)
+
+    state.conversations = state.conversations.map((item) =>
+      item.id === normalizedId
+        ? {
+            ...item,
+            title: normalizedTitle,
+          }
+        : item,
+    )
+
+    return true
+  } finally {
+    state.renamingConversationId = ''
+  }
 }
 
 async function appendUserMessage() {
@@ -378,6 +446,7 @@ export function useWorkspaceStore() {
     logout,
     createConversation,
     deleteConversation,
+    renameConversation,
     appendUserMessage,
     loadConversations,
     loadConversationMessages,

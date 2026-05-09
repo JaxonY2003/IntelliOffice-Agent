@@ -13,5 +13,7 @@ import com.jaxon.back_end.chat.entity.ChatMessage;
 public interface ChatMessageMapper extends BaseMapper<ChatMessage>{
 
     List<ChatMessageDTO> findBySessionId(@Param("sessionId") Long sessionId);
+
+    void deleteSessionMessages(@Param("sessionId") Long sessionId);
     
 }

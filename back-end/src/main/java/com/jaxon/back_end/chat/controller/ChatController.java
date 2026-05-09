@@ -15,6 +15,8 @@ import com.jaxon.back_end.common.result.Result;
 
 import java.util.List;
 
+
+
 @RestController
 @RequestMapping("/api/chat")
 public class ChatController {
@@ -36,4 +38,18 @@ public class ChatController {
     public Result<ChatSessionDTO> insertNewSession(){
         return Result.ok(chatService.insertNewSession());
     }
+
+    @PostMapping("/deleteSession")
+    public Result<?> deleteSession(@RequestParam Long sessionId) {
+        chatService.deleteSession(sessionId);
+        return Result.ok();
+    }
+
+    @PostMapping("/resetTitle")
+    public Result<?> resetTitle(@RequestParam String newTitle, @RequestParam Long sessionId) {
+        chatService.resetTitle(newTitle, sessionId);
+        return Result.ok();
+    }
+    
+    
 }

@@ -21,4 +21,16 @@
         VALUES (#{chatSession.userId}, #{chatSession.userType}, #{chatSession.title})
     </insert>
 
+    <update id="deleteSession">
+        UPDATE chat_session
+        SET is_deleted = 1
+        WHERE id = #{sessionId} 
+    </update>
+
+    <update id="resetTitle">
+        UPDATE chat_session
+        SET title = #{newTitle}
+        WHERE id = #{sessionId}
+    </update>
+
 </mapper>

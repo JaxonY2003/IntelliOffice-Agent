@@ -17,4 +17,10 @@
         ORDER BY create_time ASC, id ASC
     </select>
 
+    <update id="deleteSessionMessages">
+        UPDATE chat_message
+        SET is_deleted = 1
+        WHERE session_id = #{sessionId}
+    </update>
+
 </mapper>

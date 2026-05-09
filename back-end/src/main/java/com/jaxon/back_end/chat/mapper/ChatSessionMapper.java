@@ -17,4 +17,8 @@ public interface ChatSessionMapper extends BaseMapper<ChatSession>{
             @Param("userType") String userType);
 
     int insertNewSession(@Param("chatSession") ChatSession chatSession);
+
+    void deleteSession(@Param("sessionId") Long sessionId);
+
+    void resetTitle(@Param("newTitle") String newTitle, @Param("sessionId") Long sessionId);
 }

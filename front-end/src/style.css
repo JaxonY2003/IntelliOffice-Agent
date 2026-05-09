@@ -660,6 +660,7 @@ button {
 }
 
 .conversation-item {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   flex: 0 0 auto;
@@ -676,6 +677,7 @@ button {
     background 180ms ease,
     transform 180ms ease,
     box-shadow 180ms ease;
+  overflow: visible;
 }
 
 .conversation-main {
@@ -703,21 +705,105 @@ button {
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
 }
 
-.conversation-delete {
-  padding: 7px 10px;
+.conversation-item.menu-open {
+  z-index: 40;
+}
+
+.conversation-action-menu {
+  position: relative;
+  flex: 0 0 auto;
+  z-index: 2;
+}
+
+.conversation-action-menu.open {
+  z-index: 80;
+}
+
+.conversation-menu-button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 213, 220, 0.96);
-  font-size: 12px;
-  font-weight: 700;
   transition:
     background 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.conversation-menu-button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(7, 12, 22, 0.16);
+}
+
+.conversation-menu-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.conversation-menu-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 120;
+  display: grid;
+  gap: 4px;
+  min-width: 120px;
+  padding: 8px;
+  border-radius: 16px;
+  background: rgba(20, 30, 50, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 32px rgba(6, 10, 20, 0.28);
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition:
+    opacity 180ms ease,
     transform 180ms ease;
 }
 
-.conversation-delete:hover {
-  background: rgba(239, 68, 68, 0.18);
+.conversation-action-menu.open .conversation-menu-popover {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.conversation-menu-item {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: transparent;
+  color: rgba(236, 241, 255, 0.96);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.conversation-menu-item:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
   transform: translateY(-1px);
+}
+
+.conversation-menu-item.danger {
+  color: rgba(255, 213, 220, 0.98);
+}
+
+.conversation-menu-item.danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.16);
+}
+
+.conversation-menu-item:disabled {
+  opacity: 0.72;
+  cursor: wait;
 }
 
 .sidebar-footer {
@@ -794,8 +880,7 @@ button {
     transform 180ms ease;
 }
 
-.avatar-menu:hover .avatar-menu-popover,
-.avatar-menu:focus-within .avatar-menu-popover {
+.avatar-menu.open .avatar-menu-popover {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
@@ -862,8 +947,7 @@ button {
   transform: translateX(-8px);
 }
 
-.workspace-shell.sidebar-collapsed .avatar-menu:hover .avatar-menu-popover,
-.workspace-shell.sidebar-collapsed .avatar-menu:focus-within .avatar-menu-popover {
+.workspace-shell.sidebar-collapsed .avatar-menu.open .avatar-menu-popover {
   transform: translateX(0);
 }
 
@@ -1146,6 +1230,143 @@ button {
   transform: translateY(-10px);
 }
 
+.dialog-fade-enter-active,
+.dialog-fade-leave-active {
+  transition: opacity 200ms ease;
+}
+
+.dialog-fade-enter-from,
+.dialog-fade-leave-to {
+  opacity: 0;
+}
+
+.confirm-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(10, 16, 29, 0.38);
+  backdrop-filter: blur(10px);
+}
+
+.confirm-dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 24px;
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at top right, rgba(120, 157, 255, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 247, 252, 0.94));
+  border: 1px solid rgba(214, 223, 241, 0.82);
+  box-shadow:
+    0 28px 70px rgba(16, 24, 40, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.confirm-dialog-kicker {
+  margin: 0 0 8px;
+  color: #7b8daf;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.confirm-dialog h3 {
+  margin: 0;
+  color: #172341;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.confirm-dialog-copy {
+  margin: 14px 0 0;
+  color: rgba(55, 69, 99, 0.82);
+  line-height: 1.7;
+}
+
+.confirm-dialog-copy strong {
+  color: #172341;
+}
+
+.dialog-field {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.dialog-field span {
+  color: #50627f;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dialog-field input {
+  width: 100%;
+  padding: 13px 15px;
+  border: 1px solid rgba(194, 205, 230, 0.86);
+  border-radius: 16px;
+  background: rgba(249, 251, 255, 0.95);
+  color: #172341;
+  font-size: 14px;
+  outline: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.dialog-field input:focus {
+  border-color: rgba(95, 143, 255, 0.88);
+  box-shadow: 0 0 0 4px rgba(95, 143, 255, 0.12);
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.confirm-dialog-button {
+  min-width: 104px;
+  padding: 11px 16px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 800;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.confirm-dialog-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.confirm-dialog-button.secondary {
+  background: rgba(233, 238, 249, 0.9);
+  color: #223050;
+  box-shadow: inset 0 0 0 1px rgba(194, 205, 230, 0.7);
+}
+
+.confirm-dialog-button.danger {
+  background: linear-gradient(135deg, #ff6b81 0%, #e53e5d 100%);
+  color: #fff;
+  box-shadow: 0 14px 28px rgba(229, 62, 93, 0.24);
+}
+
+.confirm-dialog-button.primary {
+  background: linear-gradient(135deg, #5f8fff 0%, #7f74ff 100%);
+  color: #fff;
+  box-shadow: 0 14px 28px rgba(95, 143, 255, 0.22);
+}
+
+.confirm-dialog-button:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
 @media (max-width: 1120px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -1256,11 +1477,17 @@ button {
   }
 
   .conversation-item {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .conversation-delete {
-    width: 100%;
+  .conversation-menu-popover {
+    right: 0;
+    top: calc(100% + 8px);
+    transform: translateY(-8px);
+  }
+
+  .conversation-action-menu.open .conversation-menu-popover {
+    transform: translateY(0);
   }
 
   .composer-send {
@@ -1272,5 +1499,22 @@ button {
     right: 16px;
     left: 16px;
     max-width: none;
+  }
+
+  .confirm-dialog {
+    padding: 22px 18px;
+    border-radius: 22px;
+  }
+
+  .confirm-dialog h3 {
+    font-size: 22px;
+  }
+
+  .confirm-dialog-actions {
+    flex-direction: column;
+  }
+
+  .confirm-dialog-button {
+    width: 100%;
   }
 }
