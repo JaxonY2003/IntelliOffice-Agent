@@ -86,6 +86,38 @@ function readSessionFromStorage(storage) {
   }
 }
 
+function extractJwtToken(authToken) {
+  if (typeof authToken !== 'string') return ''
+  return authToken.startsWith('Bearer ') ? authToken.slice('Bearer '.length).trim() : authToken.trim()
+}
+
+function decodeJwtPayload(authToken) {
+  const jwtToken = extractJwtToken(authToken)
+  if (!jwtToken) return null
+
+  const segments = jwtToken.split('.')
+  if (segments.length !== 3) return null
+
+  try {
+    const base64 = segments[1].replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=')
+    return JSON.parse(atob(padded))
+  } catch {
+    return null
+  }
+}
+
+function isAuthTokenExpired(authToken) {
+  const payload = decodeJwtPayload(authToken)
+  const expiresAt = Number(payload?.exp)
+
+  if (!Number.isFinite(expiresAt) || expiresAt <= 0) {
+    return true
+  }
+
+  return expiresAt * 1000 <= Date.now()
+}
+
 function persistSession(token, profile, role, remember) {
   const targetStorage = remember ? localStorage : sessionStorage
 
@@ -106,6 +138,11 @@ function hydrateSession() {
   }
 
   try {
+    if (isAuthTokenExpired(storedSession.token)) {
+      clearSession()
+      return
+    }
+
     const normalizedRole = normalizeRole(storedSession.role)
     state.userProfile = {
       ...JSON.parse(storedSession.rawProfile),

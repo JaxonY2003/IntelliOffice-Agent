@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import sidebarPanelIcon from '../assets/celan.png'
 import conversationMoreIcon from '../assets/gengduo.png'
+import composerAddIcon from '../assets/jia.png'
 import { useWorkspaceStore } from '../stores/workspace'
 
 const router = useRouter()
@@ -27,6 +28,7 @@ const toast = ref({
 })
 const messageDraft = ref('')
 const sidebarOpen = ref(true)
+const attachmentMenuOpen = ref(false)
 const avatarMenuOpen = ref(false)
 const activeConversationMenuId = ref('')
 const activeConversationMenuStyle = ref({})
@@ -109,7 +111,12 @@ function getErrorMessage(error, fallbackText) {
   return error instanceof Error ? error.message : fallbackText
 }
 
+function shouldSilenceAuthError(error) {
+  return Boolean(error?.isAuthExpired)
+}
+
 function closeMenus() {
+  attachmentMenuOpen.value = false
   avatarMenuOpen.value = false
   activeConversationMenuId.value = ''
   activeConversationMenuStyle.value = {}
@@ -125,6 +132,10 @@ function handleDocumentClick(event) {
     avatarMenuOpen.value = false
   }
 
+  if (!event.target.closest('.composer-attach-menu')) {
+    attachmentMenuOpen.value = false
+  }
+
   if (
     !event.target.closest('.conversation-action-menu')
     && !event.target.closest('.conversation-floating-menu')
@@ -138,6 +149,7 @@ async function initializeChatWorkspace() {
   try {
     await loadConversations()
   } catch (error) {
+    if (shouldSilenceAuthError(error)) return
     showToast('error', getErrorMessage(error, '聊天数据加载失败，请稍后重试。'))
   }
 }
@@ -163,6 +175,7 @@ async function sendMessage() {
       showToast('error', '消息发送失败，请稍后重试。')
     }
   } catch (error) {
+    if (shouldSilenceAuthError(error)) return
     messageDraft.value = text
     showToast('error', getErrorMessage(error, '消息发送失败，请稍后重试。'))
   }
@@ -181,7 +194,20 @@ function handleComposerKeydown(event) {
 
 function toggleAvatarMenu() {
   avatarMenuOpen.value = !avatarMenuOpen.value
+  attachmentMenuOpen.value = false
   activeConversationMenuId.value = ''
+}
+
+function toggleAttachmentMenu() {
+  attachmentMenuOpen.value = !attachmentMenuOpen.value
+  avatarMenuOpen.value = false
+  activeConversationMenuId.value = ''
+  activeConversationMenuStyle.value = {}
+}
+
+function handleAttachmentAction() {
+  attachmentMenuOpen.value = false
+  showToast('success', '这里后续会接入上传文档或图像功能。')
 }
 
 function updateConversationMenuPosition(triggerElement) {
@@ -210,6 +236,7 @@ function toggleConversationMenu(id, event) {
 
   activeConversationMenuId.value = normalizedId
   avatarMenuOpen.value = false
+  attachmentMenuOpen.value = false
   updateConversationMenuPosition(event?.currentTarget)
 }
 
@@ -223,6 +250,7 @@ async function handleCreateConversation() {
 
     showToast('success', '新会话已创建。')
   } catch (error) {
+    if (shouldSilenceAuthError(error)) return
     showToast('error', getErrorMessage(error, '新建会话失败，请稍后重试。'))
   }
 }
@@ -291,6 +319,7 @@ async function confirmRenameConversation() {
     closeRenameDialog()
     showToast('success', '会话名称已更新。')
   } catch (error) {
+    if (shouldSilenceAuthError(error)) return
     showToast('error', getErrorMessage(error, '重命名失败，请稍后重试。'))
   }
 }
@@ -312,6 +341,7 @@ async function confirmDeleteConversation() {
     closeDeleteDialog()
     showToast('success', '聊天记录已删除。')
   } catch (error) {
+    if (shouldSilenceAuthError(error)) return
     showToast('error', getErrorMessage(error, '删除会话失败，请稍后重试。'))
   }
 }
@@ -321,6 +351,7 @@ async function handleSelectConversation(id) {
     closeMenus()
     await selectConversation(id)
   } catch (error) {
+    if (shouldSilenceAuthError(error)) return
     showToast('error', getErrorMessage(error, '会话内容加载失败，请稍后重试。'))
   }
 }
@@ -628,6 +659,34 @@ onBeforeUnmount(() => {
 
         <div class="composer-shell">
           <div class="composer-box" :class="{ 'is-busy': isSendingMessage }">
+            <div class="composer-attach-menu" :class="{ open: attachmentMenuOpen }">
+              <button
+                type="button"
+                class="composer-attach-button"
+                aria-label="打开上传菜单"
+                title="上传文档或图像"
+                :disabled="!hasConversations"
+                @click.stop="toggleAttachmentMenu"
+              >
+                <img
+                  class="composer-attach-icon"
+                  :src="composerAddIcon"
+                  alt=""
+                  aria-hidden="true"
+                />
+              </button>
+
+              <div class="composer-attach-popover">
+                <button
+                  type="button"
+                  class="composer-attach-item"
+                  @click.stop="handleAttachmentAction"
+                >
+                  上传文档或图像
+                </button>
+              </div>
+            </div>
+
             <textarea
               v-model="messageDraft"
               class="composer-input"
