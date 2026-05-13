@@ -44,6 +44,8 @@ public class SecurityConfig {
             // 认证请求放行
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                 // 如果你有 Swagger，也可以放行
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()

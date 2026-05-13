@@ -77,6 +77,7 @@ async function handleSubmit() {
 
     login({
       token: authData.token,
+      refreshToken: authData.refreshToken,
       tokenType: authData.tokenType,
       type: authData.type ?? payload.type,
       username: authData.username ?? payload.username,

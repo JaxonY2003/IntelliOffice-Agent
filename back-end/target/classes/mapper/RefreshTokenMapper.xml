@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jaxon.back_end.refresh.mapper.RefreshTokenMapper">
+
+    <select id="findByUserIdAndUserType" resultType="com.jaxon.back_end.refresh.entity.RefreshToken">
+        SELECT
+            id,
+            user_id AS userId,
+            user_type AS userType,
+            token_hash AS tokenHash,
+            expires_at AS expiresAt,
+            is_revoked AS isRevoked,
+            revoked_at AS revokedAt,
+            last_used_at AS lastUsedAt,
+            create_time AS createTime,
+            update_time AS updateTime,
+            is_deleted AS isDeleted
+        FROM refresh_token
+        WHERE user_id = #{userId}
+          AND user_type = #{userType}
+          AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <select id="findByRefreshHash" resultType="com.jaxon.back_end.refresh.entity.RefreshToken">
+        SELECT
+            id,
+            user_id AS userId,
+            user_type AS userType,
+            token_hash AS tokenHash,
+            expires_at AS expiresAt,
+            is_revoked AS isRevoked,
+            revoked_at AS revokedAt,
+            last_used_at AS lastUsedAt,
+            create_time AS createTime,
+            update_time AS updateTime,
+            is_deleted AS isDeleted
+        FROM refresh_token
+        WHERE token_hash = #{refreshHash}
+          AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <insert id="insertRefreshToken" useGeneratedKeys="true" keyProperty="refreshToken.id" keyColumn="id">
+        INSERT INTO refresh_token (
+            user_id,
+            user_type,
+            token_hash,
+            expires_at,
+            is_revoked,
+            revoked_at,
+            last_used_at
+        )
+        VALUES (
+            #{refreshToken.userId},
+            #{refreshToken.userType},
+            #{refreshToken.tokenHash},
+            #{refreshToken.expiresAt},
+            #{refreshToken.isRevoked},
+            #{refreshToken.revokedAt},
+            #{refreshToken.lastUsedAt}
+        )
+    </insert>
+
+    <update id="updateRefreshToken">
+        UPDATE refresh_token
+        SET token_hash = #{refreshToken.tokenHash},
+            expires_at = #{refreshToken.expiresAt},
+            is_revoked = #{refreshToken.isRevoked},
+            revoked_at = #{refreshToken.revokedAt},
+            last_used_at = #{refreshToken.lastUsedAt}
+        WHERE id = #{refreshToken.id}
+          AND is_deleted = 0
+    </update>
+
+    <update id="revokeRefreshTokenByTokenHash">
+        UPDATE refresh_token
+        SET is_revoked = 1,
+            revoked_at = NOW()
+        WHERE token_hash = #{tokenHash}
+          AND is_deleted = 0
+    </update>
+
+</mapper>

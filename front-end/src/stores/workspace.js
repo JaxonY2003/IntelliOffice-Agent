@@ -1,4 +1,5 @@
 import { computed, reactive } from 'vue'
+import { refreshAuthSession } from '../api/http'
 import {
   createChatSession,
   deleteChatSession,
@@ -8,12 +9,12 @@ import {
   sendChatMessage,
 } from '../api/chat'
 import { mockAccounts, roleOptions } from '../data/mockWorkspace'
-
-const storageKeys = {
-  token: 'token',
-  role: 'role',
-  profile: 'userProfile',
-}
+import {
+  clearAuthSession,
+  isAuthTokenExpired,
+  persistAuthSession,
+  readStoredAuthSession,
+} from '../utils/authSession'
 
 const state = reactive({
   initialized: false,
@@ -60,77 +61,8 @@ function resetWorkspace() {
   state.renamingConversationId = ''
 }
 
-function getSessionStorages() {
-  return [sessionStorage, localStorage]
-}
-
-function clearSessionFromStorage(storage) {
-  storage.removeItem(storageKeys.token)
-  storage.removeItem(storageKeys.role)
-  storage.removeItem(storageKeys.profile)
-}
-
-function readSessionFromStorage(storage) {
-  const token = storage.getItem(storageKeys.token)
-  const role = storage.getItem(storageKeys.role)
-  const rawProfile = storage.getItem(storageKeys.profile)
-
-  if (!token || !role || !rawProfile) {
-    return null
-  }
-
-  return {
-    token,
-    role,
-    rawProfile,
-  }
-}
-
-function extractJwtToken(authToken) {
-  if (typeof authToken !== 'string') return ''
-  return authToken.startsWith('Bearer ') ? authToken.slice('Bearer '.length).trim() : authToken.trim()
-}
-
-function decodeJwtPayload(authToken) {
-  const jwtToken = extractJwtToken(authToken)
-  if (!jwtToken) return null
-
-  const segments = jwtToken.split('.')
-  if (segments.length !== 3) return null
-
-  try {
-    const base64 = segments[1].replace(/-/g, '+').replace(/_/g, '/')
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=')
-    return JSON.parse(atob(padded))
-  } catch {
-    return null
-  }
-}
-
-function isAuthTokenExpired(authToken) {
-  const payload = decodeJwtPayload(authToken)
-  const expiresAt = Number(payload?.exp)
-
-  if (!Number.isFinite(expiresAt) || expiresAt <= 0) {
-    return true
-  }
-
-  return expiresAt * 1000 <= Date.now()
-}
-
-function persistSession(token, profile, role, remember) {
-  const targetStorage = remember ? localStorage : sessionStorage
-
-  getSessionStorages().forEach(clearSessionFromStorage)
-
-  targetStorage.setItem(storageKeys.token, token)
-  targetStorage.setItem(storageKeys.role, role)
-  targetStorage.setItem(storageKeys.profile, JSON.stringify(profile))
-}
-
-function hydrateSession() {
-  const storedSession =
-    readSessionFromStorage(sessionStorage) ?? readSessionFromStorage(localStorage)
+async function hydrateSession() {
+  const storedSession = readStoredAuthSession()
 
   if (!storedSession) {
     state.initialized = true
@@ -139,8 +71,12 @@ function hydrateSession() {
 
   try {
     if (isAuthTokenExpired(storedSession.token)) {
-      clearSession()
-      return
+      if (!storedSession.refreshToken) {
+        clearSession()
+        return
+      }
+
+      await refreshAuthSession()
     }
 
     const normalizedRole = normalizeRole(storedSession.role)
@@ -157,7 +93,7 @@ function hydrateSession() {
 }
 
 function clearSession() {
-  getSessionStorages().forEach(clearSessionFromStorage)
+  clearAuthSession()
   state.isAuthenticated = false
   state.userProfile = null
   resetWorkspace()
@@ -181,14 +117,21 @@ function login(session) {
   const role = normalizeRole(session?.type ?? session?.role)
   const username = session?.username?.trim()
   const token = session?.token?.trim()
+  const refreshToken = session?.refreshToken?.trim()
   const remember = session?.remember ?? true
 
   if (!token || !username) return
 
   const profile = buildUserProfile(role, username)
-  const authToken = session?.tokenType ? `${session.tokenType} ${token}` : token
 
-  persistSession(authToken, profile, role, remember)
+  persistAuthSession({
+    token,
+    refreshToken,
+    profile,
+    role,
+    remember,
+    tokenType: session?.tokenType,
+  })
   state.userProfile = profile
   state.isAuthenticated = true
   resetWorkspace()

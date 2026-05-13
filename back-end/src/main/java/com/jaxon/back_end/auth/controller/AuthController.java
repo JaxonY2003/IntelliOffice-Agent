@@ -8,6 +8,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.jaxon.back_end.auth.dto.LoginRequest;
 import com.jaxon.back_end.auth.dto.LoginResponse;
+import com.jaxon.back_end.auth.dto.LogoutRequest;
+import com.jaxon.back_end.auth.dto.RefreshTokenRequest;
+import com.jaxon.back_end.auth.dto.RefreshTokenResponse;
 import com.jaxon.back_end.auth.service.AuthService;
 import com.jaxon.back_end.common.result.Result;
 
@@ -23,4 +26,16 @@ public class AuthController {
     public Result<LoginResponse> login(@RequestBody LoginRequest request){
         return Result.ok(authService.login(request));
     }
+
+    @PostMapping("/logout")
+    public Result<?> logout(@RequestBody LogoutRequest request) {
+        authService.logout(request);
+        return Result.ok();
+    }
+
+    @PostMapping("/refresh")
+    public Result<RefreshTokenResponse> refresh(@RequestBody RefreshTokenRequest request) {
+        return Result.ok(authService.refresh(request));
+    }
+    
 }

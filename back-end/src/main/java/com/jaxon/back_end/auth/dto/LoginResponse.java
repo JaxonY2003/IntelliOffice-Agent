@@ -9,6 +9,8 @@ public class LoginResponse {
     
     @Schema(description = "token")
     private String token;
+    @Schema(description = "refreshToken")
+    private String refreshToken;
     @Schema(description = "token类型")
     private String tokenType = "Bearer";
     @Schema(description = "用户名")

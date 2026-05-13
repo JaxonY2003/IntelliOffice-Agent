@@ -44,6 +44,38 @@ public class CustomUserDetailsService {
         };
     }
 
+    public LoginUser loadByTypeAndUserId(String type, Long userId) {
+        String normalizedType = normalizeType(type);
+        if (userId == null) {
+            throw new UsernameNotFoundException("User id must not be null");
+        }
+
+        return switch (normalizedType) {
+            case "EMPLOYEE" -> {
+                Employee employee = employeeMapper.selectById(userId);
+                if (employee == null) {
+                    throw userNotFoundById(normalizedType, userId);
+                }
+                yield buildEmployeeUserDetails(employee);
+            }
+            case "MANAGER" -> {
+                Manager manager = managerMapper.selectById(userId);
+                if (manager == null) {
+                    throw userNotFoundById(normalizedType, userId);
+                }
+                yield buildManagerUserDetails(manager);
+            }
+            case "ADMIN" -> {
+                Admin admin = adminMapper.selectById(userId);
+                if (admin == null) {
+                    throw userNotFoundById(normalizedType, userId);
+                }
+                yield buildAdminUserDetails(admin);
+            }
+            default -> throw new UsernameNotFoundException("Unsupported user type: " + type);
+        };
+    }
+
     // Compatibility helper for flows that pass "TYPE:username" as a combined principal.
     public LoginUser loadUserByUsername(String combinedPrincipal) {
         if (combinedPrincipal == null || combinedPrincipal.isBlank()) {
@@ -86,6 +118,10 @@ public class CustomUserDetailsService {
 
     private UsernameNotFoundException userNotFound(String type, String username) {
         return new UsernameNotFoundException("User not found for type " + type + ": " + username);
+    }
+
+    private UsernameNotFoundException userNotFoundById(String type, Long userId) {
+        return new UsernameNotFoundException("User not found for type " + type + " and id " + userId);
     }
 
     private LoginUser buildLoginUser(Long userId, String username, String password, String userType) {

@@ -25,11 +25,11 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const { state, hydrateSession } = useWorkspaceStore()
 
   if (!state.initialized) {
-    hydrateSession()
+    await hydrateSession()
   }
 
   if (to.meta.requiresAuth && !state.isAuthenticated) {
